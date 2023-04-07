@@ -43,53 +43,56 @@ val db = BasicDataSource().apply {
     username = conn.user
     password = conn.password
 }.let {
-    Database.connect(it)
-}
+        Database.connect(it)
+    }
 
 val memberNimSet = java.nio.file.Files.readAllBytes(Path("src/main/resources/members.json")).let {
-    String(it)
-}.let {
-    ObjectMapper().readValue(it, Array<String>::class.java).toSet()
-}
+        String(it)
+    }.let {
+        ObjectMapper().readValue(it, Array<String>::class.java).toSet()
+    }
 
 val config = java.nio.file.Files.readAllBytes(Path("src/main/resources/config.json")).let {
-    String(it)
-}.let {
-    ObjectMapper().readValue(it, Config::class.java)
-}
+        String(it)
+    }.let {
+        ObjectMapper().readValue(it, Config::class.java)
+    }
 
 fun handleVerify(command: ChatInputInteractionEvent): Mono<Void> =
     command.deferReply().withEphemeral(true).then(Mono.fromSupplier {
-        command.getOption("nim").getOrNull().toOption().flatMap { it.value.getOrNull().toOption() }
-            .toEither { VerifyNimError.DiscordCommandError }.map { it.asString() }
-            .flatMap { if (memberNimSet.contains(it)) it.right() else VerifyNimError.NimNotFound(it).left() }
-            .fold(ifRight = { nim ->
-                db.runCatching {
-                    insert(MemberDiscordIds) {
-                        set(it.discordUserId, command.interaction.user.id.asString())
-                        set(it.nim, nim)
-                    }
-                }.fold(onSuccess = { if (it > 0) none() else VerifyNimError.AlreadyVerified.toOption() },
-                    onFailure = { _ -> VerifyNimError.DataAccessError.toOption() })
-            }, ifLeft = { it.toOption() })
-    }.flatMap { err ->
-        err.fold(ifEmpty = {
-            command.interaction.guildId.getOrNull().toOption().toEither { VerifyNimError.AddRoleError }
-        },
-            ifSome = { it.left() })
-            .fold(ifRight = { guildId -> command.interaction.user.asMember(guildId).map { it.right() } },
-                ifLeft = { Mono.just(it.left()) })
-    }.map { result ->
-        result.fold(ifRight = { member ->
-            // this stream is negative: only emits on error
-            member.addRole(Snowflake.of(config.memberRoleId)).subscribe()
-            return@map none<VerifyNimError>()
-        }, ifLeft = { it.toOption() })
-    }.flatMap { err ->
-        err.fold(ifEmpty = { command.createFollowup().withContent("Welcome, Extraordinary!") },
-            ifSome = { command.createFollowup().withContent(viewErrorMessageForVerifyNimError(it)) })
-    }.then()
-    )
+            command.getOption("nim").getOrNull().toOption().flatMap {
+                    it.value.getOrNull().toOption()
+                }.toEither { VerifyNimError.DiscordCommandError }.map { it.asString() }.flatMap {
+                    if (memberNimSet.contains(it)) it.right()
+                    else VerifyNimError.NimNotFound(it).left()
+                }.fold(ifRight = { nim ->
+                    db.runCatching {
+                        insert(MemberDiscordIds) {
+                            set(it.discordUserId, command.interaction.user.id.asString())
+                            set(it.nim, nim)
+                        }
+                    }.fold(onSuccess = { if (it > 0) none() else VerifyNimError.AlreadyVerified.toOption() },
+                           onFailure = { _ -> VerifyNimError.DataAccessError.toOption() })
+                }, ifLeft = { it.toOption() })
+        }.flatMap { err ->
+                err.fold(ifEmpty = {
+                    command.interaction.guildId.getOrNull().toOption().toEither { VerifyNimError.AddRoleError }
+                }, ifSome = { it.left() }).fold(ifRight = { guildId ->
+                        command.interaction.user.asMember(guildId).map { it.right() }
+                    }, ifLeft = { Mono.just(it.left()) })
+            }.map { result ->
+                result.fold(ifRight = { member ->
+                    // this stream is negative: only emits on error
+                    member.addRole(Snowflake.of(config.memberRoleId)).subscribe()
+                    return@map none<VerifyNimError>()
+                }, ifLeft = { it.toOption() })
+            }.flatMap { err ->
+                err.fold(ifEmpty = {
+                    command.createFollowup().withContent("Welcome, Extraordinary!")
+                }, ifSome = {
+                    command.createFollowup().withContent(viewErrorMessageForVerifyNimError(it))
+                })
+            }.then())
 
 fun viewErrorMessageForVerifyNimError(err: VerifyNimError): String = when (err) {
     is VerifyNimError.AddRoleError -> "Hmm, we weren't able to give you the right access. Please inform the staff of this technical issue."
