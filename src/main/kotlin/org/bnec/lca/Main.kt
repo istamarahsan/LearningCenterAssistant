@@ -2,7 +2,7 @@ package org.bnec.lca
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.bnec.lca.data.InMemoryData
-import org.bnec.lca.data.KtormData
+import org.bnec.lca.data.KtormBnecData
 import org.ktorm.database.Database
 
 val mapper = ObjectMapper()
@@ -22,7 +22,7 @@ private val configFile = object {}.javaClass.classLoader
 
 fun main() {
     val data = when (System.getenv("DATASOURCE")?.lowercase()) {
-        "mysql" -> setupDbConnection().getOrThrow().let { Database.connect(it) }.let { KtormData(memberNimSet, it) }
+        "mysql" -> setupDbConnection().getOrThrow().let { Database.connect(it) }.let { KtormBnecData(memberNimSet, it) }
         else -> InMemoryData(memberNimSet)
     }
     val config = LcaConfig(
