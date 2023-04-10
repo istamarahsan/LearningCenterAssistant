@@ -9,9 +9,11 @@ import discord4j.discordjson.json.ApplicationCommandOptionData
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.rest.RestClient
 import org.apache.commons.dbcp2.BasicDataSource
+import org.bnec.util.asOption
 import org.ktorm.database.Database
 import org.ktorm.dsl.insert
 import reactor.core.publisher.Mono
+import java.util.Optional
 import kotlin.io.path.Path
 import kotlin.jvm.optionals.getOrNull
 
@@ -60,8 +62,8 @@ val config = java.nio.file.Files.readAllBytes(Path("src/main/resources/config.js
 
 fun handleVerify(command: ChatInputInteractionEvent): Mono<Void> =
     command.deferReply().withEphemeral(true).then(Mono.fromSupplier {
-            command.getOption("nim").getOrNull().toOption().flatMap {
-                    it.value.getOrNull().toOption()
+            command.getOption("nim").asOption().flatMap {
+                    it.value.asOption()
                 }.toEither { VerifyNimError.DiscordCommandError }.map { it.asString() }.flatMap {
                     if (memberNimSet.contains(it)) it.right()
                     else VerifyNimError.NimNotFound(it).left()
@@ -76,7 +78,7 @@ fun handleVerify(command: ChatInputInteractionEvent): Mono<Void> =
                 }, ifLeft = { it.toOption() })
         }.flatMap { err ->
                 err.fold(ifEmpty = {
-                    command.interaction.guildId.getOrNull().toOption().toEither { VerifyNimError.AddRoleError }
+                    command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError }
                 }, ifSome = { it.left() }).fold(ifRight = { guildId ->
                         command.interaction.user.asMember(guildId).map { it.right() }
                     }, ifLeft = { Mono.just(it.left()) })
