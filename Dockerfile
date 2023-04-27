@@ -1,4 +1,3 @@
-ARG TOKEN
 FROM eclipse-temurin:17-jdk-alpine AS base
 
 FROM base AS gradle
@@ -18,5 +17,4 @@ RUN ./gradlew :build
 FROM base AS run
 COPY --from=build /app/build/distributions/LearningCenterAssistant.tar ./LearningCenterAssistant.tar
 RUN tar -xvf LearningCenterAssistant.tar
-ENV TOKEN $TOKEN
 ENTRYPOINT ["./LearningCenterAssistant/bin/LearningCenterAssistant"]
