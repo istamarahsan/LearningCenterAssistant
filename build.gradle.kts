@@ -1,12 +1,9 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 plugins {
     kotlin("jvm") version "1.8.20"
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    application
 }
 
 group = "org.bnec"
-version = "0.1"
 
 repositories {
     mavenCentral()
@@ -30,12 +27,6 @@ kotlin {
     jvmToolchain(17)
 }
 
-tasks.withType<Jar> {
-    manifest {
-        attributes["Main-Class"] = "org.bnec.lca.MainKt"
-    }
-}
-
-tasks.withType<ShadowJar> {
-    archiveFileName.set("${project.name}.jar")
+application {
+    mainClass.set("org.bnec.lca.MainKt")
 }
