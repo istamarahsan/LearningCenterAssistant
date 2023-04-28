@@ -2,11 +2,8 @@ package org.bnec.lca
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mysql.cj.jdbc.Driver
-import discord4j.core.DiscordClient
-import discord4j.core.event.domain.interaction.ChatInputInteractionEvent
 import org.apache.commons.dbcp2.BasicDataSource
 import org.ktorm.database.Database
-import reactor.core.publisher.Mono
 import kotlin.io.path.Path
 
 data class MySqlCredentials(
