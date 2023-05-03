@@ -17,13 +17,13 @@ object ReassignAll: SlashCommand {
       command.interaction
         .guild
         .flatMapMany { guild -> guild.members }
-        .filter(this::guildMemberHasClassAccess)
+        .filterWhen(this::guildMemberHasClassAccess)
         .flatMap(this::processRoleReassignment)
     }
 
   // TODO
-  private fun guildMemberHasClassAccess(member: Member): Boolean =
-    false 
+  private fun guildMemberHasClassAccess(member: Member): Mono<Boolean> =
+    Mono.just(false)
 
   private fun processRoleReassignment(member: Member): Mono<Void> =
     removeAllClassRoles(member).then(addClassRoles(member))
