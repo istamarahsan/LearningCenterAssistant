@@ -7,15 +7,13 @@ import discord4j.core.`object`.command.ApplicationCommandOption
 import discord4j.discordjson.json.ApplicationCommandOptionData
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.discordjson.json.ImmutableApplicationCommandRequest
-import org.bnec.lca.*
-import org.bnec.lca.data.MemberDiscordIds
+import org.bnec.lca.data.MemberData
 import org.bnec.util.asOption
 import org.bnec.util.flatMapEither
 import org.bnec.util.mapEither
-import org.ktorm.dsl.insert
 import reactor.core.publisher.Mono
 
-object Verify: SlashCommand {
+class Verify(private val memberRoleId: String, private val memberData: MemberData): SlashCommand {
   private sealed interface VerifyNimError {
     object DiscordCommandError : VerifyNimError
     object DataAccessError : VerifyNimError
@@ -33,11 +31,11 @@ object Verify: SlashCommand {
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
     command.deferReply().withEphemeral(true).and(
       Mono.fromSupplier { extractNimOption(command) }
-        .flatMapEither { nim -> nimIsMember(nim).map { isMember -> if (isMember) nim.right() else VerifyNimError.NimNotFound(nim).left() } }
+        .flatMapEither { nim -> verifyNimIsMember(nim) }
         .flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id) }
         .mapEither { command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError } }
         .flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() } }
-        .flatMapEither { member -> member.addRole(Snowflake.of(config.memberRoleId)).then().map { Unit.right() } }
+        .flatMapEither { member -> member.addRole(Snowflake.of(memberRoleId)).then().map { Unit.right() } }
         .flatMap { result -> 
           result.fold(
             ifLeft = { error ->
@@ -55,20 +53,14 @@ object Verify: SlashCommand {
       .toEither { VerifyNimError.DiscordCommandError }
       .map { it.asString() }
   
-  private fun nimIsMember(nim: String): Mono<Boolean> =
-    Mono.fromSupplier { memberNimSet.contains(nim) }
+  private fun verifyNimIsMember(nim: String): Mono<Either<VerifyNimError.NimNotFound, String>> =
+    memberData.nimIsMember(nim).map { isMember -> if (isMember) nim.right() else VerifyNimError.NimNotFound(nim).left() }
   
   private fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
-    Mono.fromSupplier {
-      db.runCatching {
-        insert(MemberDiscordIds) {
-          set(it.discordUserId, discordUserId.asString())
-          set(it.nim, nim)
-        }
-      }.fold(
-        onSuccess = { Unit.right() },
-        onFailure = { VerifyNimError.DataAccessError.left() }
-      )
+    memberData.insertMemberData(nim, discordUserId).map { result ->
+      result.mapLeft { _ ->
+        VerifyNimError.DataAccessError
+      }
     }
   
   private fun viewErrorMessageForVerifyNimError(err: VerifyNimError): String = when (err) {
