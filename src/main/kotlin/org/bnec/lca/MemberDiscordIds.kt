@@ -1,4 +1,4 @@
-package org.bnec.lca.data
+package org.bnec.lca
 
 import org.ktorm.schema.Table
 import org.ktorm.schema.varchar
