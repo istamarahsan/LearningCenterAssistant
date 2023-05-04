@@ -28,11 +28,11 @@ val db = BasicDataSource().apply {
     Database.connect(it)
 }
 
-val memberNimSet = object {}.javaClass
+val memberNimsJsonString = object {}.javaClass
     .getResource("/members.json")
-    ?.readText()?.let{ jsonString -> ObjectMapper().readValue(jsonString, Array<String>::class.java) }
-    ?.toSet()
-    ?: throw Error("member nim list could not be read")
+    ?.readText()
+
+val memberNimSet: Set<String> = ObjectMapper().readValue(memberNimsJsonString, Array<String>::class.java).toSet()
 
 val config = object {}.javaClass
     .getResource("/config.json")
@@ -42,5 +42,6 @@ val config = object {}.javaClass
 
 fun main() {
     Driver()
-    Lca.init(config).block()
+    val token = System.getenv("TOKEN") ?: throw Exception("Bot token not found")
+    Lca.init(Config(token, "")).block()
 }
