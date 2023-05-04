@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.mysql.cj.jdbc.Driver
 import org.apache.commons.dbcp2.BasicDataSource
 import org.ktorm.database.Database
+import kotlin.io.path.Path
 
 data class MySqlCredentials(
     val host: String, val port: Int, val user: String, val password: String, val database: String
@@ -28,16 +29,16 @@ val db = BasicDataSource().apply {
     Database.connect(it)
 }
 
-val memberNimsJsonString = object {}.javaClass
-    .getResource("/members.json")
-    ?.readText()
-
-val memberNimSet: Set<String> = ObjectMapper().readValue(memberNimsJsonString, Array<String>::class.java).toSet()
+val memberNimSet = java.nio.file.Files.readAllBytes(Path("src/main/resources/members.json")).let {
+    String(it)
+}.let {
+    ObjectMapper().readValue(it, Array<String>::class.java).toSet()
+}
 
 val config = object {}.javaClass
     .getResource("/config.json")
     ?.readText()
-    ?.let { jsonString -> ObjectMapper().readValue(jsonString, Config::class.java) } 
+    ?.let { ObjectMapper().readValue(it, Config::class.java) } 
     ?: throw Error("Config could not be read")
 
 fun main() {
