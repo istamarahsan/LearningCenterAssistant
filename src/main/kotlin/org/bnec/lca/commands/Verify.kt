@@ -4,6 +4,7 @@ import arrow.core.*
 import discord4j.common.util.Snowflake
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent
 import discord4j.core.`object`.command.ApplicationCommandOption
+import discord4j.core.`object`.entity.Message
 import discord4j.discordjson.json.ApplicationCommandOptionData
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.discordjson.json.ImmutableApplicationCommandRequest
@@ -28,8 +29,8 @@ class Verify(private val memberRoleId: String, private val bnecData: Data): Slas
     ).build()
   
 
-  override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
-    command.deferReply().withEphemeral(true).and(
+  override fun handle(command: ChatInputInteractionEvent): Mono<Message> =
+    command.deferReply().withEphemeral(true).then(
       Mono.fromSupplier { extractNimOption(command) }
         .flatMapEither { nim -> verifyNimIsMember(nim) }
         .flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id) }
@@ -37,14 +38,12 @@ class Verify(private val memberRoleId: String, private val bnecData: Data): Slas
         .flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() } }
         .flatMapEither { member -> member.addRole(Snowflake.of(memberRoleId)).then().map { Unit.right() } }
         .flatMap { result -> 
-          result.fold(
-            ifLeft = { error ->
-              command.createFollowup().withContent(viewErrorMessageForVerifyNimError(error))
-            },
-            ifRight = {
-              command.createFollowup().withContent("Welcome, Extraordinary!")
-          })
-      }.then())
+          when (result) {
+            is Either.Left -> command.createFollowup().withContent(viewErrorMessageForVerifyNimError(result.value))
+            is Either.Right -> command.createFollowup().withContent("Welcome, Extraordinary!")
+          }
+      }
+    )
   
   private fun extractNimOption(command: ChatInputInteractionEvent): Either<VerifyNimError.DiscordCommandError, String> =
     command.getOption("nim")

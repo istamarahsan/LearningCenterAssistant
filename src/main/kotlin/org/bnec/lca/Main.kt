@@ -26,7 +26,7 @@ fun main() {
         else -> InMemoryData(memberNimSet)
     }
     val config = LcaConfig(
-        botToken = configFile.botToken ?: System.getenv("TOKEN") ?: throw Error("Bot token could not be found"),
+        botToken = if (configFile.botToken != "") configFile.botToken else System.getenv("TOKEN") ?: throw Error("Bot token could not be found"),
         memberRoleId = configFile.memberRoleId
     )
     Lca.init(config, data).block()

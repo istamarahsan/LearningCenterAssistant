@@ -15,7 +15,7 @@ object Lca {
       DiscordClient.create(config.botToken).withGateway { gateway ->
         registerCommands(gateway.restClient, commands.values.map { cmd -> cmd.signature() }).and(
           gateway.on(ChatInputInteractionEvent::class.java) { event ->
-            (commands[event.commandName]?.handle(event) ?: Mono.empty()).then()
+            (commands[event.commandName]?.handle(event)?.then() ?: Mono.empty()).then()
           }
         )
       }

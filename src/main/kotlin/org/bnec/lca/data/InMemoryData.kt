@@ -17,6 +17,10 @@ class InMemoryData(private val memberNimSet: Set<String>, initialData: List<Pair
   override fun nimIsMember(nim: String): Mono<Boolean> = 
     Mono.just(memberNimSet.contains(nim))
 
-  override fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<Throwable, Unit>> =
-    Mono.just(if (memberDiscordIds.containsKey(nim)) Error("nim already registered").left() else Unit.right())
+  override fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<Throwable, Unit>> {
+    return Mono.fromSupplier {
+      memberDiscordIds.values.toList().forEach { println(it) }
+      if (memberDiscordIds.containsKey(nim)) Error("nim already registered").left() else memberDiscordIds.put(nim, discordUserId).let { Unit.right() } }
+  }
+    
 }
