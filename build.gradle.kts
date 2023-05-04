@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "1.8.20"
+    kotlin("plugin.serialization") version "1.8.20"
     application
 }
 
@@ -11,6 +12,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
     implementation("com.discord4j:discord4j-core:3.2.4")
     implementation("io.arrow-kt:arrow-core:1.2.0-RC")
     implementation("com.mysql:mysql-connector-j:8.0.32")

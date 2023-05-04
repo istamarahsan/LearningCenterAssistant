@@ -1,24 +1,25 @@
 package org.bnec.lca
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import org.bnec.lca.data.InMemoryData
 import org.bnec.lca.data.KtormBnecData
 import org.ktorm.database.Database
 
-val mapper = ObjectMapper()
-
+@OptIn(ExperimentalSerializationApi::class)
 private val memberNimSet = object {}.javaClass.classLoader
     .getResourceAsStream("members.json")?.use { inputStream ->
-        mapper.readValue(inputStream, Array<String>::class.java)
+        runCatching { Json.decodeFromStream<Array<String>>(inputStream) }.getOrNull()
     }
     ?.toSet()
     ?: throw Error("member nim list could not be read")
 
+@OptIn(ExperimentalSerializationApi::class)
 private val configFile = object {}.javaClass.classLoader
     .getResourceAsStream("config.json")?.use { inputStream -> 
-        mapper.readValue(inputStream, ConfigFile::class.java)
-    } 
-    ?: throw Error("Config could not be read")
+        runCatching { Json.decodeFromStream<ConfigFile>(inputStream) }.getOrNull()
+    } ?: throw Error("Config could not be read")
 
 fun main() {
     val data = when (System.getenv("DATASOURCE")?.lowercase()) {
@@ -26,7 +27,7 @@ fun main() {
         else -> InMemoryData(memberNimSet)
     }
     val config = LcaConfig(
-        botToken = if (configFile.botToken != "") configFile.botToken else System.getenv("TOKEN") ?: throw Error("Bot token could not be found"),
+        botToken = configFile.botToken ?: (System.getenv("TOKEN") ?: throw Error("Bot token could not be found")),
         memberRoleId = configFile.memberRoleId
     )
     Lca.init(config, data).block()
