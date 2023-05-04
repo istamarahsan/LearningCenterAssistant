@@ -5,13 +5,13 @@ import discord4j.core.event.domain.interaction.ChatInputInteractionEvent
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.rest.RestClient
 import org.bnec.lca.commands.Verify
-import org.bnec.lca.data.Data
+import org.bnec.lca.data.MemberData
 import reactor.core.publisher.Mono
 
 object Lca {
   
-  fun init(config: Config, bnecData: Data): Mono<Void> =
-    arrayOf(Verify(config.memberRoleId, bnecData)).associateBy { cmd -> cmd.signature().name() }.let { commands ->
+  fun init(config: Config, memberData: MemberData): Mono<Void> =
+    arrayOf(Verify(config.memberRoleId, memberData)).associateBy { cmd -> cmd.signature().name() }.let { commands ->
       DiscordClient.create(config.botToken).withGateway { gateway ->
         registerCommands(gateway.restClient, commands.values.map { cmd -> cmd.signature() }).and(
           gateway.on(ChatInputInteractionEvent::class.java) { event ->

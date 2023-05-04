@@ -2,11 +2,34 @@ package org.bnec.lca
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mysql.cj.jdbc.Driver
-import org.bnec.lca.data.InMemoryData
-import org.bnec.lca.data.KtormData
+import org.apache.commons.dbcp2.BasicDataSource
+import org.bnec.lca.data.DataImpl
 import org.ktorm.database.Database
 
 val mapper = ObjectMapper()
+
+data class MySqlCredentials(
+    val host: String, val port: Int, val user: String, val password: String, val database: String
+)
+
+private val conn = MySqlCredentials(
+    host = System.getenv("MYSQLHOST"),
+    port = System.getenv("MYSQLPORT").toInt(),
+    user = System.getenv("MYSQLUSER"),
+    password = System.getenv("MYSQLPASSWORD"),
+    database = System.getenv("MYSQLDATABASE")
+)
+
+private val connString = "jdbc:mysql://${conn.host}:${conn.port}/${conn.database}"
+
+private val db = BasicDataSource().apply {
+    driverClassName = com.mysql.cj.jdbc.Driver::class.java.name
+    url = connString
+    username = conn.user
+    password = conn.password
+}.let {
+    Database.connect(it)
+}
 
 private val memberNimSet = object {}.javaClass.classLoader
     .getResourceAsStream("members.json")?.use { inputStream ->
@@ -22,9 +45,6 @@ private val config = object {}.javaClass.classLoader
     ?: throw Error("Config could not be read")
 
 fun main() {
-    val data = when (System.getenv("data")) {
-        "mysql" -> setupDbConnection().getOrThrow().let { Database.connect(it) }.let { KtormData(memberNimSet, it) }
-        else -> InMemoryData(memberNimSet)
-    }
-    Lca.init(config, data).block()
+    Driver()
+    Lca.init(config, DataImpl(memberNimSet, db)).block()
 }

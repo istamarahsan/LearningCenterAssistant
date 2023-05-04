@@ -8,7 +8,7 @@ import org.ktorm.database.Database
 import org.ktorm.dsl.insert
 import reactor.core.publisher.Mono
 
-class KtormData(private val memberNims: Set<String>, private val db: Database) : Data {
+class DataImpl(private val memberNims: Set<String>, private val db: Database) : MemberData {
   override fun nimIsMember(nim: String): Mono<Boolean> = Mono.just(memberNims.contains(nim))
 
   override fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<Throwable, Unit>> =

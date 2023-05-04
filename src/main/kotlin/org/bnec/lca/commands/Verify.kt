@@ -7,13 +7,13 @@ import discord4j.core.`object`.command.ApplicationCommandOption
 import discord4j.discordjson.json.ApplicationCommandOptionData
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.discordjson.json.ImmutableApplicationCommandRequest
-import org.bnec.lca.data.Data
+import org.bnec.lca.data.MemberData
 import org.bnec.util.asOption
 import org.bnec.util.flatMapEither
 import org.bnec.util.mapEither
 import reactor.core.publisher.Mono
 
-class Verify(private val memberRoleId: String, private val bnecData: Data): SlashCommand {
+class Verify(private val memberRoleId: String, private val memberData: MemberData): SlashCommand {
   private sealed interface VerifyNimError {
     object DiscordCommandError : VerifyNimError
     object DataAccessError : VerifyNimError
@@ -54,10 +54,10 @@ class Verify(private val memberRoleId: String, private val bnecData: Data): Slas
       .map { it.asString() }
   
   private fun verifyNimIsMember(nim: String): Mono<Either<VerifyNimError.NimNotFound, String>> =
-    bnecData.nimIsMember(nim).map { isMember -> if (isMember) nim.right() else VerifyNimError.NimNotFound(nim).left() }
+    memberData.nimIsMember(nim).map { isMember -> if (isMember) nim.right() else VerifyNimError.NimNotFound(nim).left() }
   
   private fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
-    bnecData.insertMemberData(nim, discordUserId).map { result ->
+    memberData.insertMemberData(nim, discordUserId).map { result ->
       result.mapLeft { _ ->
         VerifyNimError.DataAccessError
       }
