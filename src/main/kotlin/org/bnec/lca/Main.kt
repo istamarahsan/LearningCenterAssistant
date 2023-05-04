@@ -3,14 +3,13 @@ package org.bnec.lca
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.mysql.cj.jdbc.Driver
 import org.apache.commons.dbcp2.BasicDataSource
-import org.bnec.lca.data.DataImpl
 import org.ktorm.database.Database
 
 data class MySqlCredentials(
     val host: String, val port: Int, val user: String, val password: String, val database: String
 )
 
-private val conn = MySqlCredentials(
+val conn = MySqlCredentials(
     host = System.getenv("MYSQLHOST"),
     port = System.getenv("MYSQLPORT").toInt(),
     user = System.getenv("MYSQLUSER"),
@@ -18,9 +17,9 @@ private val conn = MySqlCredentials(
     database = System.getenv("MYSQLDATABASE")
 )
 
-private val connString = "jdbc:mysql://${conn.host}:${conn.port}/${conn.database}"
+val connString = "jdbc:mysql://${conn.host}:${conn.port}/${conn.database}"
 
-private val db = BasicDataSource().apply {
+val db = BasicDataSource().apply {
     driverClassName = com.mysql.cj.jdbc.Driver::class.java.name
     url = connString
     username = conn.user
@@ -29,13 +28,13 @@ private val db = BasicDataSource().apply {
     Database.connect(it)
 }
 
-private val memberNimSet = object {}.javaClass
+val memberNimSet = object {}.javaClass
     .getResource("/members.json")
     ?.readText()?.let{ jsonString -> ObjectMapper().readValue(jsonString, Array<String>::class.java) }
     ?.toSet()
     ?: throw Error("member nim list could not be read")
 
-private val config = object {}.javaClass
+val config = object {}.javaClass
     .getResource("/config.json")
     ?.readText()
     ?.let { jsonString -> ObjectMapper().readValue(jsonString, Config::class.java) } 
@@ -43,5 +42,5 @@ private val config = object {}.javaClass
 
 fun main() {
     Driver()
-    Lca.init(config, DataImpl(memberNimSet, db)).block()
+    Lca.init(config).block()
 }
