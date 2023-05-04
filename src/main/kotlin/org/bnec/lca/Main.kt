@@ -21,7 +21,7 @@ private val config = object {}.javaClass.classLoader
     ?: throw Error("Config could not be read")
 
 fun main() {
-    val data = when (System.getenv("DATASOURCE")?.lowercase()) {
+    val data = when (System.getenv("DATASOURCE")) {
         "mysql" -> setupDbConnection().getOrThrow().let { Database.connect(it) }.let { KtormData(memberNimSet, it) }
         else -> InMemoryData(memberNimSet)
     }
