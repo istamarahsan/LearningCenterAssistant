@@ -14,9 +14,9 @@ private val memberNimSet = object {}.javaClass.classLoader
     ?.toSet()
     ?: throw Error("member nim list could not be read")
 
-private val configFile = object {}.javaClass.classLoader
+private val config = object {}.javaClass.classLoader
     .getResourceAsStream("config.json")?.use { inputStream -> 
-        mapper.readValue(inputStream, ConfigFile::class.java)
+        mapper.readValue(inputStream, Config::class.java)
     } 
     ?: throw Error("Config could not be read")
 
@@ -25,9 +25,5 @@ fun main() {
         "mysql" -> setupDbConnection().getOrThrow().let { Database.connect(it) }.let { KtormData(memberNimSet, it) }
         else -> InMemoryData(memberNimSet)
     }
-    val config = LcaConfig(
-        botToken = configFile.botToken ?: System.getenv("TOKEN") ?: throw Error("Bot token could not be found"),
-        memberRoleId = configFile.memberRoleId
-    )
     Lca.init(config, data).block()
 }

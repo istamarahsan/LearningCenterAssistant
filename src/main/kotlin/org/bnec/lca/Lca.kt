@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono
 
 object Lca {
   
-  fun init(config: LcaConfig, bnecData: Data): Mono<Void> =
+  fun init(config: Config, bnecData: Data): Mono<Void> =
     arrayOf(Verify(config.memberRoleId, bnecData)).associateBy { cmd -> cmd.signature().name() }.let { commands ->
       DiscordClient.create(config.botToken).withGateway { gateway ->
         registerCommands(gateway.restClient, commands.values.map { cmd -> cmd.signature() }).and(

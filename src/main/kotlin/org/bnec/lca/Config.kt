@@ -1,5 +1,5 @@
 package org.bnec.lca
 
-class ConfigFile(
-  val botToken: String?,
+class Config(
+  val botToken: String = "",
   val memberRoleId: String = "")
