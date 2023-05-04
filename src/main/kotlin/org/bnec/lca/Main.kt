@@ -35,11 +35,11 @@ val memberNimSet = java.nio.file.Files.readAllBytes(Path("src/main/resources/mem
     ObjectMapper().readValue(it, Array<String>::class.java).toSet()
 }
 
-val config = object {}.javaClass
-    .getResource("/config.json")
-    ?.readText()
-    ?.let { ObjectMapper().readValue(it, Config::class.java) } 
-    ?: throw Error("Config could not be read")
+val config = java.nio.file.Files.readAllBytes(Path("src/main/resources/config.json")).let {
+    String(it)
+}.let {
+    ObjectMapper().readValue(it, Config::class.java)
+}
 
 fun main() {
     Driver()
