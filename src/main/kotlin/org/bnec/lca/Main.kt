@@ -6,8 +6,6 @@ import org.apache.commons.dbcp2.BasicDataSource
 import org.bnec.lca.data.DataImpl
 import org.ktorm.database.Database
 
-val mapper = ObjectMapper()
-
 data class MySqlCredentials(
     val host: String, val port: Int, val user: String, val password: String, val database: String
 )
@@ -31,17 +29,16 @@ private val db = BasicDataSource().apply {
     Database.connect(it)
 }
 
-private val memberNimSet = object {}.javaClass.classLoader
-    .getResourceAsStream("members.json")?.use { inputStream ->
-        mapper.readValue(inputStream, Array<String>::class.java)
-    }
+private val memberNimSet = object {}.javaClass
+    .getResource("/members.json")
+    ?.readText()?.let{ jsonString -> ObjectMapper().readValue(jsonString, Array<String>::class.java) }
     ?.toSet()
     ?: throw Error("member nim list could not be read")
 
-private val config = object {}.javaClass.classLoader
-    .getResourceAsStream("config.json")?.use { inputStream -> 
-        mapper.readValue(inputStream, Config::class.java)
-    } 
+private val config = object {}.javaClass
+    .getResource("/config.json")
+    ?.readText()
+    ?.let { jsonString -> ObjectMapper().readValue(jsonString, Config::class.java) } 
     ?: throw Error("Config could not be read")
 
 fun main() {
