@@ -3,7 +3,7 @@ plugins {
     application
 }
 
-group = "bnec.org"
+group = "org.bnec"
 
 repositories {
     mavenCentral()
