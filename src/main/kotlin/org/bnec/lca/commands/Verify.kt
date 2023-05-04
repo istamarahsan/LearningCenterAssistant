@@ -10,8 +10,6 @@ import discord4j.discordjson.json.ImmutableApplicationCommandRequest
 import org.bnec.lca.*
 import org.bnec.lca.data.MemberDiscordIds
 import org.bnec.util.asOption
-import org.bnec.util.flatMapEither
-import org.checkerframework.checker.nullness.Opt
 import org.ktorm.dsl.insert
 import reactor.core.publisher.Mono
 
@@ -34,40 +32,37 @@ object Verify: SlashCommand {
     command.deferReply().withEphemeral(true).then(Mono.fromSupplier {
       command.getOption("nim").asOption().flatMap {
         it.value.asOption()
-      }.toEither { VerifyNimError.DiscordCommandError }
-        .map { it.asString() }
-        .flatMap { 
-          if (memberNimSet.contains(it)) it.right() else VerifyNimError.NimNotFound(it).left()
-      }
-    }.flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id)
-    }.map { dataInsertionResult ->
-      dataInsertionResult.flatMap {
+      }.toEither { VerifyNimError.DiscordCommandError }.map { it.asString() }.flatMap {
+        if (memberNimSet.contains(it)) it.right()
+        else VerifyNimError.NimNotFound(it).left()
+      }.fold(ifRight = { nim ->
+        db.runCatching {
+          insert(MemberDiscordIds) {
+            set(it.discordUserId, command.interaction.user.id.asString())
+            set(it.nim, nim)
+          }
+        }.fold(onSuccess = { if (it > 0) none() else VerifyNimError.AlreadyVerified.toOption() },
+          onFailure = { _ -> VerifyNimError.DataAccessError.toOption() })
+      }, ifLeft = { it.toOption() })
+    }.flatMap { err ->
+      err.fold(ifEmpty = {
         command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError }
-      }
-    }.flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() }
-    }.flatMapEither { member -> member.addRole(Snowflake.of(config.memberRoleId)).then().map { Unit.right() }
-    }.flatMap { result ->
-      result.fold(
-        ifLeft = { error ->
-          command.createFollowup().withContent(viewErrorMessageForVerifyNimError(error))
-        },
-        ifRight = {
+      }, ifSome = { it.left() }).fold(ifRight = { guildId ->
+        command.interaction.user.asMember(guildId).map { it.right() }
+      }, ifLeft = { Mono.just(it.left()) })
+    }.map { result ->
+      result.fold(ifRight = { member ->
+        // this stream is negative: only emits on error
+        member.addRole(Snowflake.of(config.memberRoleId)).subscribe()
+        return@map none<VerifyNimError>()
+      }, ifLeft = { it.toOption() })
+    }.flatMap { err ->
+      err.fold(ifEmpty = {
         command.createFollowup().withContent("Welcome, Extraordinary!")
+      }, ifSome = {
+        command.createFollowup().withContent(viewErrorMessageForVerifyNimError(it))
       })
     }.then())
-  
-  private fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
-    Mono.fromSupplier {
-      db.runCatching {
-        insert(MemberDiscordIds) {
-          set(it.discordUserId, discordUserId.asString())
-          set(it.nim, nim)
-        }
-      }.fold(
-        onSuccess = { Unit.right() },
-        onFailure = { VerifyNimError.DataAccessError.left() }
-      )
-    }
   
   private fun viewErrorMessageForVerifyNimError(err: VerifyNimError): String = when (err) {
     is VerifyNimError.AddRoleError -> "Hmm, we weren't able to give you the right access. Please inform the staff of this technical issue."
