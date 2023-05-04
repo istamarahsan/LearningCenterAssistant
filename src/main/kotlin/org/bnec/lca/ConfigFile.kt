@@ -6,10 +6,6 @@ import kotlinx.serialization.Serializable
 class ConfigFile(
   val botToken: String? = null,
   val memberRoleId: String,
-  val classes: Array<ClassRoleAssociation>)
-
-@Serializable
-data class ClassRoleAssociation(
-  val id: String,
-  val roleId: String
-)
+  val sudo: Array<String> = emptyArray(),
+  val classRoles: Map<Int, String>,
+  val classSelections: Map<String, Array<Int>>)

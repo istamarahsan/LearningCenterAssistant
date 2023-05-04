@@ -1,5 +1,6 @@
 package org.bnec.lca
 
+import discord4j.common.util.Snowflake
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
@@ -28,7 +29,8 @@ fun main() {
     }
     val config = LcaConfig(
         botToken = configFile.botToken ?: (System.getenv("TOKEN") ?: throw Error("Bot token could not be found")),
-        memberRoleId = configFile.memberRoleId
+        memberRoleId = Snowflake.of(configFile.memberRoleId),
+        sudo = configFile.sudo.map { Snowflake.of(it) }
     )
     Lca.init(config, data).block()
 }

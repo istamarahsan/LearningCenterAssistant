@@ -13,7 +13,7 @@ import org.bnec.util.flatMapEither
 import org.bnec.util.mapEither
 import reactor.core.publisher.Mono
 
-class Verify(private val memberRoleId: String, private val bnecData: BnecData): SlashCommand {
+class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData): SlashCommand {
   private sealed interface VerifyNimError {
     object DiscordCommandError : VerifyNimError
     object DataAccessError : VerifyNimError
@@ -36,7 +36,7 @@ class Verify(private val memberRoleId: String, private val bnecData: BnecData): 
         .flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id) }
         .mapEither { command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError } }
         .flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() } }
-        .flatMapEither { member -> member.addRole(Snowflake.of(memberRoleId)).thenReturn(Unit.right()) }
+        .flatMapEither { member -> member.addRole(memberRoleId).thenReturn(Unit.right()) }
         .onErrorResume { unhandledError -> Mono.just(VerifyNimError.UnhandledError(unhandledError).left()) } 
         .flatMap { result -> 
           println(result)
