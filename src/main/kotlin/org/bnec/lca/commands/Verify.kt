@@ -11,7 +11,7 @@ import org.bnec.lca.*
 import org.bnec.lca.data.MemberDiscordIds
 import org.bnec.util.asOption
 import org.bnec.util.flatMapEither
-import org.bnec.util.mapEither
+import org.checkerframework.checker.nullness.Opt
 import org.ktorm.dsl.insert
 import reactor.core.publisher.Mono
 
@@ -31,32 +31,30 @@ object Verify: SlashCommand {
   
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
-    command.deferReply().withEphemeral(true).and(
-      Mono.fromSupplier { extractNimOption(command) }
-        .flatMapEither { nim -> nimIsMember(nim).map { isMember -> if (isMember) nim.right() else VerifyNimError.NimNotFound(nim).left() } }
-        .flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id) }
-        .mapEither { command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError } }
-        .flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() } }
-        .flatMapEither { member -> member.addRole(Snowflake.of(config.memberRoleId)).then().map { Unit.right() } }
-        .flatMap { result -> 
-          result.fold(
-            ifLeft = { error ->
-              command.createFollowup().withContent(viewErrorMessageForVerifyNimError(error))
-            },
-            ifRight = {
-              command.createFollowup().withContent("Welcome, Extraordinary!")
-          })
-      }.then())
-  
-  private fun extractNimOption(command: ChatInputInteractionEvent): Either<VerifyNimError.DiscordCommandError, String> =
-    command.getOption("nim")
-      .asOption()
-      .flatMap { it.value.asOption() }
-      .toEither { VerifyNimError.DiscordCommandError }
-      .map { it.asString() }
-  
-  private fun nimIsMember(nim: String): Mono<Boolean> =
-    Mono.fromSupplier { memberNimSet.contains(nim) }
+    command.deferReply().withEphemeral(true).then(Mono.fromSupplier {
+      command.getOption("nim").asOption().flatMap {
+        it.value.asOption()
+      }.toEither { VerifyNimError.DiscordCommandError }
+        .map { it.asString() }
+        .flatMap { 
+          if (memberNimSet.contains(it)) it.right() else VerifyNimError.NimNotFound(it).left()
+      }
+    }.flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id)
+    }.map { dataInsertionResult ->
+      dataInsertionResult.flatMap {
+        command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError }
+      }
+    }.flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() }
+    }.flatMapEither { member -> member.addRole(Snowflake.of(config.memberRoleId)).then().map { Unit.right() }
+    }.flatMap { result ->
+      result.fold(
+        ifLeft = { error ->
+          command.createFollowup().withContent(viewErrorMessageForVerifyNimError(error))
+        },
+        ifRight = {
+        command.createFollowup().withContent("Welcome, Extraordinary!")
+      })
+    }.then())
   
   private fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
     Mono.fromSupplier {
