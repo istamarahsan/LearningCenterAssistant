@@ -8,7 +8,6 @@ import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.discordjson.json.ImmutableApplicationCommandRequest
 import org.bnec.lca.data.BnecData
 import org.bnec.util.flatMapEither
-import org.bnec.util.mapEither
 import reactor.core.publisher.Mono
 
 class ReassignAll(
