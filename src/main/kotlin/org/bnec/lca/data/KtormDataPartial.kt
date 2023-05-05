@@ -40,5 +40,22 @@ class KtormDataPartial(private val inMemory: InMemoryData, private val db: Datab
     }
   
   override fun classSelectionsOfNim(nim: String): Mono<Either<Throwable, List<Int>>> = inMemory.classSelectionsOfNim(nim)
+  override fun getAllVerifiedMembers(): Mono<Either<Throwable, List<Pair<String, Snowflake>>>> =
+    Mono.fromSupplier { 
+      db.runCatching { 
+        from(MemberDiscordIds)
+          .select()
+          .map { row ->
+            Pair(
+              row[MemberDiscordIds.nim] ?: throw Error("NIM column not found"),  
+              row[MemberDiscordIds.discordUserId] ?: throw Error("Discord User ID column not found")) 
+          }.map { pair ->
+            Pair(pair.first, Snowflake.of(pair.second))
+          }
+      }.fold(
+        onSuccess = { it.right() },
+        onFailure = { it.left() }
+      )
+    }
 }
       

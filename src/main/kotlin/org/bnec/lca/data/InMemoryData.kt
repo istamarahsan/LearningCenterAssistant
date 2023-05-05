@@ -33,6 +33,9 @@ class InMemoryData(private val memberNimSet: Set<String>, private val classSelec
   
 
   override fun classSelectionsOfNim(nim: String): Mono<Either<Throwable, List<Int>>> =
-    Mono.just(classSelections[nim]?.right() ?: Error("Class selections for NIM: \"$nim\" not found").left()) 
+    Mono.just(classSelections[nim]?.right() ?: Error("Class selections for NIM: \"$nim\" not found").left())
+
+  override fun getAllVerifiedMembers(): Mono<Either<Throwable, List<Pair<String, Snowflake>>>> =
+    Mono.just(memberDiscordIds.right())
 
 }
