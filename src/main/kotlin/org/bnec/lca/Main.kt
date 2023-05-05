@@ -5,7 +5,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import org.bnec.lca.data.InMemoryData
-import org.bnec.lca.data.KtormBnecData
+import org.bnec.lca.data.KtormDataPartial
 import org.ktorm.database.Database
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -23,14 +23,21 @@ private val configFile = object {}.javaClass.classLoader
     } ?: throw Error("Config could not be read")
 
 fun main() {
+    val inMemoryData = InMemoryData(
+        memberNimSet, 
+        configFile.classSelections.mapValues { it.value.toList() }
+    )
     val data = when (System.getenv("DATASOURCE")?.lowercase()) {
-        "mysql" -> setupDbConnection().getOrThrow().let { Database.connect(it) }.let { KtormBnecData(memberNimSet, it) }
-        else -> InMemoryData(memberNimSet)
+        "mysql" -> setupDbConnection().getOrThrow()
+            .let { connectionSource -> Database.connect(connectionSource) }
+            .let { db -> KtormDataPartial(inMemoryData, db) }
+        else -> inMemoryData
     }
     val config = LcaConfig(
         botToken = configFile.botToken ?: (System.getenv("TOKEN") ?: throw Error("Bot token could not be found")),
         memberRoleId = Snowflake.of(configFile.memberRoleId),
-        sudo = configFile.sudo.map { Snowflake.of(it) }
+        sudo = configFile.sudo.map { Snowflake.of(it) },
+        classRoles = configFile.classRoles.mapValues { entry -> Snowflake.of(entry.value) }
     )
     Lca.init(config, data).block()
 }
