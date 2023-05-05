@@ -22,14 +22,14 @@ class ReassignAll(
       .build()
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
-    command.deferReply().withEphemeral(false).and {
+    command.deferReply().withEphemeral(true).then (
       command.interaction
         .guild
         .flatMapMany { guild -> guild.members }
         .filterWhen(this::guildMemberHasClassAccess)
         .flatMap(this::processRoleReassignment)
         .then()
-    }.thenEmpty(
+    ).thenEmpty(
       command.createFollowup()
         .withContent("Done")
         .then()
@@ -52,7 +52,7 @@ class ReassignAll(
       .defaultIfEmpty(false)
 
   private fun processRoleReassignment(member: Member): Mono<Void> =
-    removeAllClassRoles(member).then(addClassRoles(member))
+    removeAllClassRoles(member).thenEmpty(addClassRoles(member))
 
   private fun removeAllClassRoles(member: Member): Mono<Void> =
     Mono.whenDelayError(
@@ -83,5 +83,5 @@ class ReassignAll(
             }
             .asIterable()
         )
-      }
+      }.log()
 }
