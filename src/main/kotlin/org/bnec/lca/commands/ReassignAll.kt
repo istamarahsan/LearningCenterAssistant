@@ -16,10 +16,9 @@ class ReassignAll(
 ) : SlashCommand {
   override fun signature(): ImmutableApplicationCommandRequest =
     ApplicationCommandRequest.builder()
-      .name("reassignAll")
+      .name("reassignall")
       .description("assign class roles to verified members (overwrites)")
       .defaultPermission(false)
-      
       .build()
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
