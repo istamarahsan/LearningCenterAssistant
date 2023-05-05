@@ -33,12 +33,13 @@ class ReassignAll(
       command.createFollowup()
         .withContent("Done")
         .then()
-        .onErrorComplete()
-    ).onErrorResume { error ->
-      command.createFollowup()
-        .withContent("Something went wrong: ${error.message}")
-        .then()
-    }
+//        .onErrorComplete()
+    )
+//      .onErrorResume { error ->
+//      command.createFollowup()
+//        .withContent("Something went wrong: ${error.message}")
+//        .then()
+//    }
 
 
   private fun guildMemberHasClassAccess(member: Member): Mono<Boolean> =
