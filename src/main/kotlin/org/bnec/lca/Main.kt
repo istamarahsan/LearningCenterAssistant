@@ -36,7 +36,6 @@ fun main() {
     val config = LcaConfig(
         botToken = configFile.botToken ?: (System.getenv("TOKEN") ?: throw Error("Bot token could not be found")),
         memberRoleId = Snowflake.of(configFile.memberRoleId),
-        sudo = configFile.sudo.map { Snowflake.of(it) },
         classRoles = configFile.classRoles
             .mapKeys { entry -> entry.key.toInt() }
             .mapValues { entry -> Snowflake.of(entry.value) }

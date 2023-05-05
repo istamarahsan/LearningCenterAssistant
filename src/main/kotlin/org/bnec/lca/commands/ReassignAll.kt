@@ -18,6 +18,8 @@ class ReassignAll(
     ApplicationCommandRequest.builder()
       .name("reassignAll")
       .description("assign class roles to verified members (overwrites)")
+      .defaultPermission(false)
+      
       .build()
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
