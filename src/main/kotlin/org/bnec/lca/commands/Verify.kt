@@ -37,7 +37,8 @@ class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData
         .mapEither { command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError } }
         .flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() } }
         .flatMapEither { member -> member.addRole(memberRoleId).thenReturn(Unit.right()) }
-        .onErrorResume { unhandledError -> Mono.just(VerifyNimError.UnhandledError(unhandledError).left()) } 
+        .defaultIfEmpty(VerifyNimError.UnhandledError(Error("Flow error: unexpected empty stream")).left())
+        .onErrorResume { unhandledError -> Mono.just(VerifyNimError.UnhandledError(unhandledError).left()) }
         .flatMap { result -> 
           println(result)
           when (result) {
