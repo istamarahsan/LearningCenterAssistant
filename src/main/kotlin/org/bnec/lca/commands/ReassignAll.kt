@@ -18,12 +18,13 @@ class ReassignAll(
       .name("reassignall")
       .description("assign class roles to verified members (overwrites)")
       .defaultPermission(false)
+      .dmPermission(false)
       .build()
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
     command.deferReply().withEphemeral(true).then(
       Mono.zip(
-        command.interaction.guild,
+        command.interaction.guild.switchIfEmpty(Mono.error(Error("This command only works on servers"))),
         data.getAllVerifiedMembers().map { result -> result.getOrNull() ?: throw Error("Could not retrieve members") },
         ::Pair
       ).flatMapMany { (guild, verificationDataSet) ->

@@ -27,7 +27,8 @@ class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData
     ApplicationCommandRequest.builder().name("verify").description("verify with your NIM").addOption(
       ApplicationCommandOptionData.builder().name("nim").description("Your NIM")
         .type(ApplicationCommandOption.Type.STRING.value).required(true).build()
-    ).build()
+    ).dmPermission(false)
+      .build()
 
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
