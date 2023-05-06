@@ -14,8 +14,8 @@ class InMemoryData(private val memberNimSet: Set<String>, private val classSelec
     memberDiscordIds = initialData.toMutableList()
   }
 
-  override fun nimIsMember(nim: String): Mono<Boolean> =
-    Mono.just(memberNimSet.contains(nim)) 
+  override fun nimIsMember(nim: String): Mono<Either<Throwable, Boolean>> =
+    Mono.just(memberNimSet.contains(nim).right())
 
   override fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<Throwable, Unit>> {
     if (memberDiscordIds.any{ pair -> pair.first == nim })

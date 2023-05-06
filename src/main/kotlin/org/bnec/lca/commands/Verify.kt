@@ -13,7 +13,7 @@ import org.bnec.util.flatMapEither
 import org.bnec.util.mapEither
 import reactor.core.publisher.Mono
 
-class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData): SlashCommand {
+class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData) : SlashCommand {
   private sealed interface VerifyNimError {
     object DiscordCommandError : VerifyNimError
     object DataAccessError : VerifyNimError
@@ -22,12 +22,13 @@ class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData
     object AlreadyVerified : VerifyNimError
     class UnhandledError(val error: Throwable) : VerifyNimError
   }
+
   override fun signature(): ImmutableApplicationCommandRequest =
     ApplicationCommandRequest.builder().name("verify").description("verify with your NIM").addOption(
       ApplicationCommandOptionData.builder().name("nim").description("Your NIM")
         .type(ApplicationCommandOption.Type.STRING.value).required(true).build()
     ).build()
-  
+
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
     command.deferReply().withEphemeral(true).then(
@@ -39,28 +40,39 @@ class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData
         .flatMapEither { member -> member.addRole(memberRoleId).thenReturn(Unit.right()) }
         .defaultIfEmpty(VerifyNimError.UnhandledError(Error("Flow error: unexpected empty stream")).left())
         .onErrorResume { unhandledError -> Mono.just(VerifyNimError.UnhandledError(unhandledError).left()) }
-        .flatMap { result -> 
-          println(result)
+        .flatMap { result ->
           when (result) {
             is Either.Left -> command.createFollowup().withContent(viewErrorMessageForVerifyNimError(result.value))
             is Either.Right -> command.createFollowup().withContent("Welcome, Extraordinary!")
           }
-      }.then()
+        }.then()
     )
-  
+
   private fun extractNimOption(command: ChatInputInteractionEvent): Either<VerifyNimError.DiscordCommandError, String> =
     command.getOption("nim")
       .asOption()
       .flatMap { it.value.asOption() }
       .toEither { VerifyNimError.DiscordCommandError }
       .map { it.asString() }
-  
+
   private fun verifyNimIsMember(nim: String): Mono<Either<VerifyNimError.NimNotFound, String>> =
-    bnecData.nimIsMember(nim).map { nimIsMember -> if (nimIsMember) nim.right() else VerifyNimError.NimNotFound(nim).left()}
-  
-  private fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
+    bnecData.nimIsMember(nim)
+      .map { result ->
+        when (result) {
+          is Either.Left -> VerifyNimError.NimNotFound(nim).left()
+          is Either.Right -> when (result.value) {
+            true -> nim.right()
+            false -> VerifyNimError.NimNotFound(nim).left()
+          }
+        }
+      }
+
+  private fun insertMemberData(
+    nim: String,
+    discordUserId: Snowflake
+  ): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
     bnecData.insertMemberData(nim, discordUserId).map { result -> result.mapLeft { VerifyNimError.DataAccessError } }
-  
+
   private fun viewErrorMessageForVerifyNimError(err: VerifyNimError): String = when (err) {
     VerifyNimError.AddRoleError -> "Hmm, we weren't able to give you the right access. Please inform the staff of this technical issue."
     VerifyNimError.DataAccessError -> "Sorry, we had issues accessing our data. Please notify staff of this issue."

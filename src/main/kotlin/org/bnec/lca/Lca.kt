@@ -12,11 +12,20 @@ import reactor.core.publisher.Mono
 object Lca {
 
   fun init(config: LcaConfig, bnecData: BnecData): Mono<Void> {
-    val commands = arrayOf(Verify(config.memberRoleId, bnecData), ReassignAll(config.classRoles, bnecData)).associateBy { cmd -> cmd.signature().name() }
+    val commands = arrayOf(
+      Verify(config.memberRoleId, bnecData),
+      ReassignAll(config.memberRoleId, config.classRoles, bnecData)
+    ).associateBy { cmd -> cmd.signature().name() }
+
     return DiscordClient.create(config.botToken).withGateway { gateway ->
-      registerCommands(gateway.restClient, commands.values.map { cmd -> cmd.signature() }).and(
+      registerCommands(
+        gateway.restClient,
+        commands.values.map { cmd -> cmd.signature() }
+      ).and(
         gateway.on(ChatInputInteractionEvent::class.java) { event ->
-          (commands[event.commandName]?.handle(event) ?: event.reply("Command not recognized"))
+          (commands[event.commandName]
+            ?.handle(event) 
+            ?: event.reply("Command not recognized"))
         }
       )
     }

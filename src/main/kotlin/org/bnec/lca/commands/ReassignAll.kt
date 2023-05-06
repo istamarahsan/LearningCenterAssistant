@@ -1,16 +1,15 @@
 package org.bnec.lca.commands
 
-import arrow.core.Either
 import discord4j.common.util.Snowflake
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent
-import discord4j.core.`object`.entity.Member
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.discordjson.json.ImmutableApplicationCommandRequest
 import org.bnec.lca.data.BnecData
-import org.bnec.util.flatMapEither
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 class ReassignAll(
+  private val memberRoleId: Snowflake,
   private val classRoles: Map<Int, Snowflake>,
   private val data: BnecData
 ) : SlashCommand {
@@ -22,67 +21,50 @@ class ReassignAll(
       .build()
 
   override fun handle(command: ChatInputInteractionEvent): Mono<Void> =
-    command.deferReply().withEphemeral(true).then (
-      command.interaction
-        .guild
-        .flatMapMany { guild -> guild.members }
-        .filterWhen(this::guildMemberHasClassAccess)
-        .flatMap(this::processRoleReassignment)
-        .then()
-    ).thenEmpty(
-      command.createFollowup()
-        .withContent("Done")
-        .then()
-//        .onErrorComplete()
-    )
-//      .onErrorResume { error ->
-//      command.createFollowup()
-//        .withContent("Something went wrong: ${error.message}")
-//        .then()
-//    }
-
-
-  private fun guildMemberHasClassAccess(member: Member): Mono<Boolean> =
-    data.nimOfDiscordUserId(member.id)
-      .flatMap { result ->
-        when (result) {
-          is Either.Left -> Mono.just(false)
-          is Either.Right -> data.nimIsMember(result.value)
-        }
-      }
-      .defaultIfEmpty(false)
-
-  private fun processRoleReassignment(member: Member): Mono<Void> =
-    removeAllClassRoles(member).thenEmpty(addClassRoles(member))
-
-  private fun removeAllClassRoles(member: Member): Mono<Void> =
-    Mono.whenDelayError(
-      classRoles.values
-        .asSequence()
-        .map { role -> member.removeRole(role).then() }
-        .asIterable()
-    )
-
-  private fun addClassRoles(member: Member): Mono<Void> =
-    data.nimOfDiscordUserId(member.id)
-      .flatMapEither { nim ->
-        data.classSelectionsOfNim(nim)
-      }.map { result ->
-        when (result) {
-          is Either.Left -> throw result.value
-          is Either.Right -> result.value
-        }
-      }.map { classIds ->
-        classIds.mapNotNull { id ->
-          classRoles[id]
-        }
-      }.flatMap { roleIds ->
-        Mono.whenDelayError(
-          roleIds.asSequence()
-            .map { id ->
-              member.addRole(id).then()
-            }
+    command.deferReply().withEphemeral(true).then(
+      Mono.zip(
+        command.interaction.guild,
+        data.getAllVerifiedMembers().map { result -> result.getOrNull() ?: throw Error("Could not retrieve members") },
+        ::Pair
+      ).flatMapMany { (guild, verificationDataSet) ->
+        Flux.merge(
+          verificationDataSet.asSequence()
+            .map { (nim, discordUserId) -> 
+              guild.getMemberById(discordUserId).map { serverMemberData -> Pair(nim, serverMemberData) }
+          }
             .asIterable()
         )
-      }.log()
+      }.filter { (_, memberData) ->
+        memberData.roleIds.contains(memberRoleId)
+      }.flatMap { (nim, memberData) ->
+        Mono.whenDelayError(
+          classRoles.values
+            .map { roleId -> memberData.removeRole(roleId).then() }
+            .asIterable()
+        ).onErrorComplete()
+          .then(
+            data.classSelectionsOfNim(nim)
+              .map { result -> result.getOrNull() ?: throw Error("Error in retrieving class selections") }
+              .map { classIds -> Pair(memberData, classIds) }
+        )
+      }.map { (memberData, classIds) ->
+        Pair(
+          memberData,
+          classIds.mapNotNull { classId -> classRoles[classId] }
+        )
+      }.flatMap { (memberData, roleIds) ->
+        Flux.merge(
+          roleIds.map { roleId -> memberData.addRole(roleId).then() }
+            .asIterable()
+        )
+      }.then()
+    ).thenEmpty(
+      command.createFollowup()
+        .withContent("Done!")
+        .then()
+    ).onErrorResume { error ->
+      command.createFollowup()
+        .withContent("An error occurred: ${error.message}")
+        .then()
+    }
 }
