@@ -4,6 +4,7 @@ import arrow.core.*
 import discord4j.common.util.Snowflake
 import discord4j.core.event.domain.interaction.ChatInputInteractionEvent
 import discord4j.core.`object`.command.ApplicationCommandOption
+import discord4j.core.`object`.entity.Member
 import discord4j.discordjson.json.ApplicationCommandOptionData
 import discord4j.discordjson.json.ApplicationCommandRequest
 import discord4j.discordjson.json.ImmutableApplicationCommandRequest
@@ -13,7 +14,7 @@ import org.bnec.util.flatMapEither
 import org.bnec.util.mapEither
 import reactor.core.publisher.Mono
 
-class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData) : SlashCommand {
+class Verify(private val memberRoleId: Snowflake, private val classRoles: Map<Int,Snowflake>, private val bnecData: BnecData) : SlashCommand {
   private sealed interface VerifyNimError {
     object DiscordCommandError : VerifyNimError
     object DataAccessError : VerifyNimError
@@ -38,7 +39,7 @@ class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData
         .flatMapEither { nim -> insertMemberData(nim, command.interaction.user.id) }
         .mapEither { command.interaction.guildId.asOption().toEither { VerifyNimError.AddRoleError } }
         .flatMapEither { guildId -> command.interaction.user.asMember(guildId).map { it.right() } }
-        .flatMapEither { member -> member.addRole(memberRoleId).thenReturn(Unit.right()) }
+        .flatMapEither { member -> member.addRole(memberRoleId).then(processClassRoles(member)) }
         .defaultIfEmpty(VerifyNimError.UnhandledError(Error("Flow error: unexpected empty stream")).left())
         .onErrorResume { unhandledError -> Mono.just(VerifyNimError.UnhandledError(unhandledError).left()) }
         .flatMap { result ->
@@ -74,6 +75,15 @@ class Verify(private val memberRoleId: Snowflake, private val bnecData: BnecData
   ): Mono<Either<VerifyNimError.DataAccessError, Unit>> =
     bnecData.insertMemberData(nim, discordUserId).map { result -> result.mapLeft { VerifyNimError.DataAccessError } }
 
+  private fun processClassRoles(member: Member): Mono<Either<VerifyNimError.AddRoleError, Unit>> =
+    bnecData.nimOfDiscordUserId(member.id)
+      .flatMapEither { nim -> bnecData.classSelectionsOfNim(nim) }
+      .mapEither { classIds -> classIds.mapNotNull { classId -> classRoles[classId] }.right() }
+      .flatMapEither { roleIds -> Mono.whenDelayError(roleIds.asSequence().map { roleId -> member.addRole(roleId) }.asIterable())
+        .onErrorComplete()
+        .thenReturn(Unit.right()) } 
+      .map { result -> result.mapLeft { VerifyNimError.AddRoleError } }
+  
   private fun viewErrorMessageForVerifyNimError(err: VerifyNimError): String = when (err) {
     VerifyNimError.AddRoleError -> "Hmm, we weren't able to give you the right access. Please inform the staff of this technical issue."
     VerifyNimError.DataAccessError -> "Sorry, we had issues accessing our data. Please notify staff of this issue."

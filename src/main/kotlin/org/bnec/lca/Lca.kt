@@ -13,7 +13,7 @@ object Lca {
 
   fun init(config: LcaConfig, bnecData: BnecData): Mono<Void> {
     val commands = arrayOf(
-      Verify(config.memberRoleId, bnecData),
+      Verify(config.memberRoleId, config.classRoles, bnecData),
       ReassignAll(config.memberRoleId, config.classRoles, bnecData)
     ).associateBy { cmd -> cmd.signature().name() }
 

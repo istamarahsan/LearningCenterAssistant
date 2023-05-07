@@ -9,7 +9,7 @@ import org.ktorm.dsl.*
 import reactor.core.publisher.Mono
 
 class KtormDataPartial(private val inMemory: InMemoryData, private val db: Database) : BnecData by inMemory {
-
+  
   override fun insertMemberData(nim: String, discordUserId: Snowflake): Mono<Either<Throwable, Unit>> =
     Mono.fromSupplier {
       db.runCatching {
